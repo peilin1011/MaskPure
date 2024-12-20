@@ -447,7 +447,6 @@ def mask_and_demask(filtered_dataset_text,
         
     return modified_adv_texts
 
-
 def get_avg_logits(inputs, pipeline, num_voter, v_type='logit', softmax_after_tally=False):
     """
     Similar to voting(), but uses only logits and returns all logit values, not just the top label.
@@ -653,7 +652,55 @@ def get_avg_logits(inputs, pipeline, num_voter, v_type='logit', softmax_after_ta
     
     else:
         raise ValueError(f'Parameter v_type must be one of "majority", "logit", or "maj_log".')
+'''
+from collections import Counter
 
+def get_avg_answers(inputs, model, num_voter, device='cuda:0'):
+    """
+    聚合多个模型预测的答案，通过多数投票确定最终答案。
+    
+    Parameters:
+    - inputs (list[tuple]): 每个元素是一个包含 (image_tensor, question) 的元组。
+    - model (torch.nn.Module): 您的 VQA 模型。
+    - num_voter (int): 每个输入生成的答案数量。
+    - device (str): 设备配置，如 'cuda:0' 或 'cpu'。
+    
+    Returns:
+    - final_answers (list[str]): 每个输入的最终答案。
+    """
+    final_answers = []
+    model.eval()
+    model.to(device)
+    
+    with torch.no_grad():
+        for idx, (image_tensor, question) in enumerate(inputs):
+            print(question)
+            answers = []
+            for voter in range(num_voter):
+                answer = model(
+                    image=image_tensor.to(device),
+                    question=question, 
+                    train=False,           # 设置为推理模式
+                    inference='generate',
+                )
+                # 假设模型返回的是字符串类型的答案
+                answers.append(answer)
+            
+            # 多数投票
+            answer_counts = Counter(answers)
+            most_common = answer_counts.most_common()
+            top_count = most_common[0][1]
+            top_answers = [ans for ans, cnt in most_common if cnt == top_count]
+            
+            if len(top_answers) == 1:
+                final_answers.append(top_answers[0])
+            else:
+                # 如果有多个答案出现次数相同，可以选择第一个，或者使用其他策略
+                final_answers.append(top_answers[0])
+    
+    return final_answers
+
+'''
 def eval_masking(filtered_dataset, 
                  classifier_pipeline,
                  tokenizer,
